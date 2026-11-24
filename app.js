@@ -32,7 +32,7 @@
     try {
       response = await fetch(API_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "apikey": ANON_KEY, "Authorization": `Bearer ${ANON_KEY}` },
+        headers: { "Content-Type": "application/json", "apikey": ANON_KEY },
         body: JSON.stringify({ action, ...payload }),
       });
     } catch {
@@ -265,7 +265,14 @@
     if (!window.confirm("Close signups and make the Secret Santa draw? This draw cannot be undone.")) return;
     setStatus(els.adminStatus, "Closing signups and drawing names…");
     try {
-      const result = await adminRequest("draw", { selectedDate: $("#admin-date").value || null });
+      // Close both signup and voting first. The database serializes this with
+      // joins and votes, then the draw RPC validates the final event state.
+      await adminRequest("settings", {
+        signupsOpen: false,
+        votingOpen: false,
+        selectedDate: $("#admin-date").value || null,
+      });
+      const result = await adminRequest("draw");
       setStatus(els.adminStatus, `Draw complete for ${result.participantCount} classmates. Each person has one private reveal.`);
       renderPublic(result);
       toast("The draw is ready.");
