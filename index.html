@@ -9,9 +9,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261124-3">
+  <link rel="stylesheet" href="styles.css?v=20261124-4">
   <script src="config.js?v=20261124-2"></script>
-  <script src="app.js?v=20261124-5" defer></script>
+  <script src="app.js?v=20261124-6" defer></script>
 </head>
 <body>
   <div class="snow" aria-hidden="true"></div>
@@ -24,9 +24,7 @@
       <a href="#date">The date</a>
       <a href="#rules">The gift rules</a>
       <a href="#join">Join in</a>
-      <a href="#organizer">Organizer</a>
     </nav>
-    <a class="organizer-shortcut" href="#organizer">Organizer</a>
     <button class="music-button" id="music-toggle" type="button" aria-pressed="false">
       <span class="music-dot" aria-hidden="true"></span><span id="music-label">Christmas music</span>
     </button>
@@ -124,9 +122,10 @@
         <div class="reveal-copy"><p class="eyebrow"><span class="eyebrow-line"></span> Your secret, when the time comes</p><h3>Someone’s in<br><em>your hands.</em></h3><p id="reveal-hint">The draw is still wrapped up. We’ll let you know when it’s time.</p></div>
         <button class="button button-light" id="reveal-button" type="button" disabled>Reveal my person</button>
       </section>
-      <details class="organizer" id="organizer">
-        <summary>Organizer access</summary>
+      <dialog class="organizer-dialog" id="organizer-dialog" aria-labelledby="organizer-dialog-title">
+        <button class="organizer-close" id="organizer-close" type="button" aria-label="Close organizer menu">×</button>
         <div class="organizer-inner">
+          <h2 id="organizer-dialog-title" class="sr-only">Organizer menu</h2>
           <p>Private organizer tools. Enter your code to unlock them on this device. The code is not saved.</p>
           <form id="organizer-auth-form" class="organizer-auth-form">
             <label for="organizer-code">Organizer code</label>
@@ -157,14 +156,16 @@
           </div>
         </div>
       </details>
-    </section>
+ 
+        </div>
+      </dialog>   </section>
 
     <section class="closing-band">
       <div class="wrap closing-inner"><span aria-hidden="true">✳</span><p>Make it small. Make it personal.<br><em>Make it feel like them.</em></p><span aria-hidden="true">✳</span></div>
     </section>
   </main>
 
-  <footer class="footer wrap"><a class="brand" href="#top"><span class="brand-mark" aria-hidden="true">✳</span><span>CLASS SECRET SANTA <small>2026</small></span></a><p>Made for our class, with a little extra thought.</p><a class="back-top" href="#organizer">Organizer controls</a><a class="back-top" href="#top">Back to top ↑</a></footer>
+  <footer class="footer wrap"><a class="brand" href="#top"><span class="brand-mark" aria-hidden="true">✳</span><span>CLASS SECRET SANTA <small>2026</small></span></a><p>Made for our class, with a little extra thought.</p><button class="organizer-entry" id="organizer-open" type="button" aria-label="Open organizer menu" title="Organizer menu">✳</button><a class="back-top" href="#top">Back to top ↑</a></footer>
 
   <dialog id="code-dialog" class="modal">
     <form method="dialog" class="modal-card"><button class="modal-close" aria-label="Close">×</button><span class="modal-spark" aria-hidden="true">✧</span><p class="eyebrow dark">KEEP THIS PRIVATE</p><h2>Your reveal code</h2><p>This code lets you access your gift hints and recipient from any device. Save it somewhere safe. We can’t recover it if it’s lost.</p><div class="code-box" id="new-code"></div><div class="modal-actions"><button class="button button-dark" id="copy-code" type="button">Copy code</button><button class="button button-outline" id="download-code" type="button">Save as a note</button></div><button class="button button-light modal-done" value="ok">I’ve saved it</button><p class="form-status" id="code-status" aria-live="polite"></p></form>
