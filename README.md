@@ -1,10 +1,10 @@
 # Class Secret Santa 2026
 
-A responsive, static GitHub Pages site with a Supabase Edge Function backend. Names, gift hints, and matches live in the shared database; the browser is never the source of truth. The class event is scheduled for Friday, December 18, 2026.
+A responsive, static GitHub Pages site with a Supabase Edge Function backend. Names, gift hints, and matches live in the shared database; the browser is never the source of truth. The class event is scheduled for Friday, December 11, 2026.
 
 ## What classmates see
 
-- The confirmed event date: Friday, December 18, 2026.
+- The confirmed event date: Friday, December 11, 2026.
 - A live class list and countdown to the event.
 - The rules: maximum total spend €50, at least one handmade gift, and one other thoughtful gift.
 - A short original bell tune that only plays after a visitor taps the music control.
@@ -60,7 +60,7 @@ The public repo contains only the static front end, SQL schema, and Edge Functio
 
 ## Organizer controls
 
-Organizer tools stay locked until the private organizer code is entered, and the code is held in memory only for that page session. The owner can open or close signups, remove participants before the draw, view assignments after the draw, and download a private CSV of names and matches. The organizer export never contains participants’ reveal codes: those are stored only as hashes and remain with each participant. The event date is Friday, December 18, 2026. The draw is randomized with cryptographic randomness, is a derangement (no one gets themselves), and each participant can reveal their own match with their code.
+Organizer tools stay locked until the private organizer code is entered, and the code is held in memory only for that page session. The owner can open or close signups, remove participants before the draw, view assignments after the draw, and download a private CSV of names and matches. The organizer export never contains participants’ reveal codes: those are stored only as hashes and remain with each participant. The event date is Friday, December 11, 2026. The draw is randomized with cryptographic randomness, is a derangement (no one gets themselves), and each participant can reveal their own match with their code.
 
 ## Data and privacy
 
