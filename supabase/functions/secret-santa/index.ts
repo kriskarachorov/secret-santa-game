@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "content-type",
+  "Access-Control-Allow-Headers": "content-type, apikey",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Content-Type": "application/json; charset=utf-8",
 };
@@ -77,8 +77,9 @@ function failStatus(message: string) {
   if (message === "draw-already-complete") return 409;
   if (message === "date-tie-needs-organizer-choice" || message === "no-votes-yet") return 409;
   if (message === "at-least-two-participants-required") return 409;
+  if (message === "invalid-date" || message === "invalid-name" || message === "invalid-wishlist") return 400;
   if (message === "voting-is-closed" || message === "signups-are-closed" || message === "draw-not-ready" || message === "choose-a-date-first") return 409;
-  return 400;
+  return 500;
 }
 
 Deno.serve(async (request) => {
@@ -122,10 +123,18 @@ Deno.serve(async (request) => {
       if (!event.signups_open || event.draw_complete) throw new Error("event-is-closed");
       const code = randomCode();
       const hash = await accessHash(code, pepper);
-      const { data, error } = await db.from("santa_participants").insert({ name, name_normalized: name.normalize("NFKC").toLocaleLowerCase(), wishlist, access_hash: hash }).select("id,name").single();
+      const { data, error } = await db.rpc("join_secret_santa", {
+        p_name: name,
+        p_name_normalized: name.normalize("NFKC").toLocaleLowerCase(),
+        p_wishlist: wishlist,
+        p_access_hash: hash,
+      });
       if (error?.code === "23505") throw new Error("name-already-joined");
-      if (error || !data) throw new Error("Could not add your name. Please try again.");
-      return respond({ participant: { name: data.name }, accessCode: code }, 201);
+      if (error || !data?.[0]) {
+        if (error?.message?.includes("event-is-closed")) throw new Error("event-is-closed");
+        throw new Error("Could not add your name. Please try again.");
+      }
+      return respond({ participant: { name: data[0].name }, accessCode: code }, 201);
     }
 
     if (action === "restore" || action === "vote" || action === "reveal") {
@@ -148,8 +157,11 @@ Deno.serve(async (request) => {
         const { data: event, error: eventError } = await db.from("santa_event").select("voting_open,draw_complete").eq("id", 1).single();
         if (eventError) throw new Error("Could not read voting settings.");
         if (!event.voting_open || event.draw_complete) throw new Error("voting-is-closed");
-        const { error: voteError } = await db.from("santa_votes").upsert({ participant_id: person.id, date }, { onConflict: "participant_id" });
-        if (voteError) throw new Error("Could not save your vote.");
+        const { error: voteError } = await db.rpc("cast_secret_santa_vote", { p_participant_id: person.id, p_date: date });
+        if (voteError) {
+          if (voteError.message?.includes("voting-is-closed")) throw new Error("voting-is-closed");
+          throw new Error("Could not save your vote.");
+        }
         return respond({ vote: date });
       }
 
@@ -170,53 +182,38 @@ Deno.serve(async (request) => {
         const signupsOpen = body.signupsOpen === true;
         const votingOpen = body.votingOpen === true;
         const requestedDate = body.selectedDate || null;
-        const { data: current, error: currentError } = await db.from("santa_event").select("draw_complete").eq("id", 1).single();
-        if (currentError) throw new Error("Could not read event settings.");
-        if (current.draw_complete) throw new Error("draw-already-complete");
         if (requestedDate && !dates.has(requestedDate)) return respond({ error: "Choose one of the two Fridays." }, 400);
-        let selectedDate = null;
-        if (!votingOpen) {
-          if (requestedDate) selectedDate = requestedDate;
-          else {
-            const { data: votes, error: votesError } = await db.from("santa_votes").select("date");
-            if (votesError) throw new Error("Could not count the votes.");
-            const totals = { "2026-12-04": 0, "2026-12-11": 0 };
-            (votes || []).forEach((vote) => { totals[vote.date]++; });
-            if (totals["2026-12-04"] === 0 && totals["2026-12-11"] === 0) throw new Error("no-votes-yet");
-            if (totals["2026-12-04"] === totals["2026-12-11"]) throw new Error("date-tie-needs-organizer-choice");
-            selectedDate = totals["2026-12-04"] > totals["2026-12-11"] ? "2026-12-04" : "2026-12-11";
-          }
+        const { error: updateError } = await db.rpc("update_secret_santa_settings", {
+          p_signups_open: signupsOpen,
+          p_voting_open: votingOpen,
+          p_requested_date: requestedDate,
+        });
+        if (updateError) {
+          const message = updateError.message || "";
+          if (message.includes("draw-already-complete")) throw new Error("draw-already-complete");
+          if (message.includes("no-votes-yet")) throw new Error("no-votes-yet");
+          if (message.includes("date-tie-needs-organizer-choice")) throw new Error("date-tie-needs-organizer-choice");
+          throw new Error("Could not save event settings.");
         }
-        const { error: updateError } = await db.from("santa_event").update({ signups_open: signupsOpen, voting_open: votingOpen, selected_date: selectedDate, updated_at: new Date().toISOString() }).eq("id", 1);
-        if (updateError) throw new Error("Could not save event settings.");
         return await publicResponse(db);
       }
 
       if (body.operation === "draw") {
-        const { data: event, error: eventError } = await db.from("santa_event").select("draw_complete,voting_open").eq("id", 1).single();
+        const { data: event, error: eventError } = await db.from("santa_event").select("draw_complete,signups_open,voting_open,selected_date").eq("id", 1).single();
         if (eventError) throw new Error("Could not read event settings.");
         if (event.draw_complete) throw new Error("draw-already-complete");
-        if (event.voting_open) throw new Error("draw-not-ready");
+        if (event.signups_open || event.voting_open) throw new Error("draw-not-ready");
+        if (!event.selected_date) throw new Error("choose-a-date-first");
         const { data: people, error: peopleError } = await db.from("santa_participants").select("id").order("id");
         if (peopleError) throw new Error("Could not load the class list.");
         if (!people || people.length < 2) throw new Error("at-least-two-participants-required");
-        const requestedDate = body.selectedDate || null;
-        let chosenDate = requestedDate;
-        if (chosenDate && !dates.has(chosenDate)) return respond({ error: "Choose one of the two Fridays." }, 400);
-        if (!chosenDate) {
-          const { data: votes, error: votesError } = await db.from("santa_votes").select("date");
-          if (votesError) throw new Error("Could not count the votes.");
-          const totals = { "2026-12-04": 0, "2026-12-11": 0 };
-          (votes || []).forEach((vote) => { totals[vote.date]++; });
-          if (totals["2026-12-04"] === 0 && totals["2026-12-11"] === 0) throw new Error("no-votes-yet");
-          if (totals["2026-12-04"] === totals["2026-12-11"]) throw new Error("date-tie-needs-organizer-choice");
-          chosenDate = totals["2026-12-04"] > totals["2026-12-11"] ? "2026-12-04" : "2026-12-11";
-        }
         const pairs = shuffledDerangement(people.map((person) => person.id));
-        const { error: drawError } = await db.rpc("complete_secret_santa_draw", { p_pairs: pairs, p_selected_date: chosenDate });
+        const { error: drawError } = await db.rpc("complete_secret_santa_draw", { p_pairs: pairs, p_selected_date: event.selected_date });
         if (drawError) {
           if (drawError.message?.includes("draw-already-complete")) throw new Error("draw-already-complete");
           if (drawError.message?.includes("at-least-two-participants-required")) throw new Error("at-least-two-participants-required");
+          if (drawError.message?.includes("draw-not-ready")) throw new Error("draw-not-ready");
+          if (drawError.message?.includes("choose-a-date-first")) throw new Error("choose-a-date-first");
           throw new Error("Could not safely finalize the draw.");
         }
         return await publicResponse(db);
