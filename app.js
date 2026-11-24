@@ -127,6 +127,17 @@
         renderPublic(data);
       }
     } catch (error) {
+      if (error.message === "invalid-code") {
+        state.code = "";
+        state.participant = null;
+        localStorage.removeItem(KEY);
+        els.reveal.hidden = true;
+        els.revealButton.disabled = true;
+        els.joinButton.disabled = !state.settings?.signups_open;
+        setStatus(els.joinStatus, state.settings?.signups_open ? "Signups are open. Add your name when you’re ready." : "Signups are not open right now.");
+        setStatus(els.restoreStatus, "The saved reveal code is no longer valid. You can join again if you still want to take part.", true);
+        return;
+      }
       els.joinButton.disabled = true;
       setStatus(els.joinStatus, `Shared event service unavailable: ${error.message}`, true);
     }
