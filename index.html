@@ -9,9 +9,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261124-2">
+  <link rel="stylesheet" href="styles.css?v=20261124-3">
   <script src="config.js?v=20261124-2"></script>
-  <script src="app.js?v=20261124-3" defer></script>
+  <script src="app.js?v=20261124-4" defer></script>
 </head>
 <body>
   <div class="snow" aria-hidden="true"></div>
@@ -125,14 +125,36 @@
         <button class="button button-light" id="reveal-button" type="button" disabled>Reveal my person</button>
       </section>
       <details class="organizer" id="organizer">
-        <summary>Organizer controls <span>· event settings and draw</span></summary>
+        <summary>Organizer access</summary>
         <div class="organizer-inner">
-          <p>Keep this section for the organizer. The organizer code is never stored in the site.</p>
-          <label for="organizer-code">Organizer code</label><input id="organizer-code" type="password" autocomplete="off" placeholder="Enter organizer code">
-          <div class="admin-options"><label class="check-row"><input type="checkbox" id="admin-signups"> Signups open</label></div>
-          <label for="admin-date">Event date</label><select id="admin-date"><option value="2026-12-18">Friday, December 18, 2026</option></select>
-          <div class="admin-actions"><button class="button button-outline" id="save-settings" type="button">Save event settings</button><button class="button button-dark" id="start-draw" type="button">Close signups & draw</button></div>
-          <p class="form-status" id="admin-status" aria-live="polite"></p>
+          <p>Private organizer tools. Enter your code to unlock them on this device. The code is not saved.</p>
+          <form id="organizer-auth-form" class="organizer-auth-form">
+            <label for="organizer-code">Organizer code</label>
+            <input id="organizer-code" type="password" autocomplete="off" placeholder="Enter your private code" required>
+            <button class="button button-dark" type="submit">Unlock organizer tools</button>
+          </form>
+          <p class="form-status" id="admin-auth-status" aria-live="polite"></p>
+          <div class="organizer-dashboard" id="organizer-dashboard" hidden>
+            <div class="organizer-dashboard-heading">
+              <div><h3>Private organizer tools</h3><p>Unlocked only for this page session.</p></div>
+              <button class="button button-outline" id="organizer-lock" type="button">Lock</button>
+            </div>
+            <div class="organizer-settings">
+              <label class="check-row"><input type="checkbox" id="admin-signups"> Signups open</label>
+              <button class="button button-outline" id="save-settings" type="button">Save signup setting</button>
+              <button class="button button-dark" id="start-draw" type="button">Close signups & draw</button>
+            </div>
+            <h4>Class list and matches</h4>
+            <div class="organizer-table-wrap">
+              <table class="organizer-table">
+                <thead><tr><th>Participant</th><th>Matched with</th><th>Action</th></tr></thead>
+                <tbody id="organizer-rows"><tr><td colspan="3">Unlock to view the private list.</td></tr></tbody>
+              </table>
+            </div>
+            <p class="admin-export-note" id="admin-export-note">Matches will appear after the draw. Reveal codes stay with each participant and cannot be recovered by the organizer.</p>
+            <button class="button button-outline" id="export-organizer-csv" type="button" disabled>Download private spreadsheet (.csv)</button>
+            <p class="form-status" id="admin-status" aria-live="polite"></p>
+          </div>
         </div>
       </details>
     </section>

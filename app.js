@@ -5,13 +5,15 @@
   const ANON_KEY = (window.SECRET_SANTA_CONFIG?.anonKey || "").trim();
   const KEY = "classSecretSanta2026AccessCode";
   const $ = (selector) => document.querySelector(selector);
-  const state = { code: localStorage.getItem(KEY) || "", participant: null, settings: null };
+  const state = { code: localStorage.getItem(KEY) || "", participant: null, settings: null, organizerCode: "", organizerData: null };
 
   const els = {
     joinForm: $("#join-form"), name: $("#participant-name"), wishlist: $("#wishlist"), joinButton: $("#join-submit"), joinStatus: $("#join-status"),
     restoreForm: $("#restore-form"), restoreCode: $("#restore-code"), restoreStatus: $("#restore-status"),
     participants: $("#participant-list"), count: $("#participant-count"), signupState: $("#signup-state"), countdownTitle: $("#countdown-title"), countdownNote: $("#countdown-note"),
-    reveal: $("#reveal-card"), revealHint: $("#reveal-hint"), revealButton: $("#reveal-button"), organizerCode: $("#organizer-code"), adminStatus: $("#admin-status"),
+    reveal: $("#reveal-card"), revealHint: $("#reveal-hint"), revealButton: $("#reveal-button"), organizerCode: $("#organizer-code"),
+    organizerAuth: $("#organizer-auth-form"), authStatus: $("#admin-auth-status"), organizerDashboard: $("#organizer-dashboard"),
+    organizerRows: $("#organizer-rows"), adminStatus: $("#admin-status"), exportButton: $("#export-organizer-csv"),
   };
 
   function setStatus(element, message, error = false) {
@@ -79,8 +81,6 @@
       ["days", "hours", "minutes", "seconds"].forEach((id) => { $(`#${id}`).textContent = "—"; });
     }
 
-    $("#admin-signups").checked = Boolean(state.settings.signups_open);
-    if (selected) $("#admin-date").value = selected;
     const hasDraw = Boolean(state.settings.draw_complete);
     els.reveal.hidden = !state.code;
     if (state.code) {
@@ -201,26 +201,123 @@
   });
 
   async function adminRequest(action, extra = {}) {
-    const organizerCode = els.organizerCode.value;
-    if (!organizerCode) throw new Error("Enter the organizer code first.");
-    return request("admin", { organizerCode, operation: action, ...extra });
+    if (!state.organizerCode) throw new Error("Unlock the organizer tools first.");
+    return request("admin", { organizerCode: state.organizerCode, operation: action, ...extra });
   }
+
+  function renderOrganizer(data) {
+    state.organizerData = data;
+    els.organizerDashboard.hidden = false;
+    $("#admin-signups").checked = Boolean(data.settings?.signups_open);
+    els.organizerRows.replaceChildren();
+    const participants = Array.isArray(data.participants) ? data.participants : [];
+    if (!participants.length) {
+      const row = document.createElement("tr");
+      const cell = document.createElement("td");
+      cell.colSpan = 3;
+      cell.textContent = "No one has signed up yet.";
+      row.append(cell);
+      els.organizerRows.append(row);
+    } else {
+      for (const person of participants) {
+        const row = document.createElement("tr");
+        const name = document.createElement("td");
+        const recipient = document.createElement("td");
+        const action = document.createElement("td");
+        name.textContent = person.name;
+        recipient.textContent = person.recipientName || (data.settings?.draw_complete ? "Unavailable" : "Not drawn yet");
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "remove-participant";
+        remove.textContent = "Remove";
+        remove.disabled = Boolean(data.settings?.draw_complete);
+        remove.addEventListener("click", async () => {
+          if (!window.confirm(`Remove ${person.name} from the Secret Santa list? This cannot be undone after the draw.`)) return;
+          remove.disabled = true;
+          setStatus(els.adminStatus, `Removing ${person.name}…`);
+          try {
+            const result = await adminRequest("removeParticipant", { participantId: person.id });
+            renderOrganizer(result);
+            renderPublic(await request("public"));
+            setStatus(els.adminStatus, `${person.name} was removed from the list.`);
+          } catch (error) {
+            setStatus(els.adminStatus, error.message, true);
+            remove.disabled = false;
+          }
+        });
+        action.append(remove);
+        row.append(name, recipient, action);
+        els.organizerRows.append(row);
+      }
+    }
+
+    els.exportButton.disabled = !data.settings?.draw_complete || !participants.length;
+    $("#admin-export-note").textContent = data.settings?.draw_complete
+      ? "This downloads a local CSV with names and matches. Reveal codes are participant-held and are not stored by the server."
+      : "Matches will appear after the draw. Reveal codes stay with each participant and cannot be recovered by the organizer.";
+  }
+
+  els.organizerAuth.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const code = els.organizerCode.value.trim();
+    setStatus(els.authStatus, "Checking organizer code…");
+    try {
+      const data = await request("admin", { organizerCode: code, operation: "overview" });
+      state.organizerCode = code;
+      els.organizerAuth.hidden = true;
+      renderOrganizer(data);
+      setStatus(els.authStatus, "Private organizer tools unlocked for this page session.");
+    } catch (error) {
+      setStatus(els.authStatus, error.message, true);
+    }
+  });
+
+  $("#organizer-lock").addEventListener("click", () => {
+    state.organizerCode = "";
+    state.organizerData = null;
+    els.organizerCode.value = "";
+    els.organizerAuth.hidden = false;
+    els.organizerDashboard.hidden = true;
+    els.organizerRows.replaceChildren();
+    setStatus(els.authStatus, "Organizer tools locked.");
+    setStatus(els.adminStatus, "");
+  });
+
+  els.exportButton.addEventListener("click", () => {
+    const people = state.organizerData?.participants || [];
+    if (!state.organizerData?.settings?.draw_complete || !people.length) return;
+    const quote = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+    const rows = [["Participant", "Matched with", "Private reveal code"], ...people.map((person) => [person.name, person.recipientName, "Held privately by participant"])];
+    const csv = rows.map((row) => row.map(quote).join(",")).join("\r\n");
+    const blob = new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "secret-santa-private-matches.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+    setStatus(els.adminStatus, "Private match spreadsheet downloaded to this device.");
+  });
 
   $("#save-settings").addEventListener("click", async () => {
     setStatus(els.adminStatus, "Saving event settings…");
     try {
-      const selectedDate = $("#admin-date").value || null;
       const result = await adminRequest("settings", {
         signupsOpen: $("#admin-signups").checked,
         votingOpen: false,
-        selectedDate,
+        selectedDate: "2026-12-18",
       });
       setStatus(els.adminStatus, "Event settings saved.");
       renderPublic(result);
+      renderOrganizer(await adminRequest("overview"));
     } catch (error) { setStatus(els.adminStatus, error.message, true); }
   });
 
   $("#start-draw").addEventListener("click", async () => {
+    if ((state.organizerData?.participants || []).length < 2) {
+      setStatus(els.adminStatus, "At least two participants are needed before the draw.", true);
+      return;
+    }
     if (!window.confirm("Close signups and make the Secret Santa draw? This draw cannot be undone.")) return;
     setStatus(els.adminStatus, "Closing signups and drawing names…");
     try {
@@ -228,11 +325,12 @@
       await adminRequest("settings", {
         signupsOpen: false,
         votingOpen: false,
-        selectedDate: $("#admin-date").value || null,
+        selectedDate: "2026-12-18",
       });
       const result = await adminRequest("draw");
       setStatus(els.adminStatus, `Draw complete for ${result.participants.length} classmates. Each person has one private reveal.`);
       renderPublic(result);
+      renderOrganizer(await adminRequest("overview"));
       toast("The draw is ready.");
     } catch (error) { setStatus(els.adminStatus, error.message, true); }
   });

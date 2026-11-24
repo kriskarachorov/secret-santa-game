@@ -75,6 +75,7 @@ function failStatus(message: string) {
   if (message === "invalid-organizer-code") return 403;
   if (message === "organizer-code-not-configured") return 503;
   if (message === "draw-already-complete") return 409;
+  if (message === "participant-not-found") return 404;
   if (message === "date-tie-needs-organizer-choice" || message === "no-votes-yet") return 409;
   if (message === "at-least-two-participants-required") return 409;
   if (message === "invalid-date" || message === "invalid-name" || message === "invalid-wishlist") return 400;
@@ -178,6 +179,20 @@ Deno.serve(async (request) => {
       const { data: eventAuth, error: authError } = await db.from("santa_event").select("organizer_code_hash").eq("id", 1).single();
       if (authError || !eventAuth?.organizer_code_hash) throw new Error("organizer-code-not-configured");
       if (!constantTimeEqual(await accessHash(supplied), eventAuth.organizer_code_hash)) throw new Error("invalid-organizer-code");
+      if (body.operation === "overview") return await organizerOverview(db);
+
+      if (body.operation === "removeParticipant") {
+        const participantId = typeof body.participantId === "string" ? body.participantId : "";
+        if (!/^[0-9a-f-]{36}$/i.test(participantId)) return respond({ error: "Choose a participant from the organizer list." }, 400);
+        const { error: removeError } = await db.rpc("remove_secret_santa_participant", { p_participant_id: participantId });
+        if (removeError) {
+          if (removeError.message?.includes("draw-already-complete")) throw new Error("draw-already-complete");
+          if (removeError.message?.includes("participant-not-found")) throw new Error("participant-not-found");
+          throw new Error("Could not remove that participant.");
+        }
+        return await organizerOverview(db);
+      }
+
       if (body.operation === "settings") {
         const signupsOpen = body.signupsOpen === true;
         const votingOpen = body.votingOpen === true;
@@ -238,4 +253,31 @@ async function publicResponse(db: ReturnType<typeof createClient>) {
   const votes: Record<string, number> = { "2026-12-04": 0, "2026-12-11": 0 };
   for (const row of voteRows || []) votes[row.date] = (votes[row.date] || 0) + 1;
   return respond({ settings: event, participants: participants || [], votes });
+}
+
+async function organizerOverview(db: ReturnType<typeof createClient>) {
+  const [{ data: event, error: eventError }, { data: participants, error: peopleError }] = await Promise.all([
+    db.from("santa_event").select("signups_open,selected_date,draw_complete").eq("id", 1).single(),
+    db.from("santa_participants").select("id,name").order("name", { ascending: true }),
+  ]);
+  if (eventError || peopleError) throw new Error("Could not load the private organizer list.");
+
+  let matches = new Map<string, string>();
+  if (event.draw_complete) {
+    const [{ data: assignments, error: assignmentError }] = await Promise.all([
+      db.from("santa_assignments").select("giver_id,recipient_id"),
+    ]);
+    if (assignmentError) throw new Error("Could not load the private match list.");
+    const names = new Map((participants || []).map((person) => [person.id, person.name]));
+    matches = new Map((assignments || []).map((pair) => [pair.giver_id, names.get(pair.recipient_id) || ""]));
+  }
+
+  return respond({
+    settings: event,
+    participants: (participants || []).map((person) => ({
+      id: person.id,
+      name: person.name,
+      recipientName: matches.get(person.id) || "",
+    })),
+  });
 }
