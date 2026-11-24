@@ -7,6 +7,7 @@ create table if not exists public.santa_event (
   signups_open boolean not null default false,
   voting_open boolean not null default false,
   selected_date date null check (selected_date is null or selected_date in ('2026-12-04', '2026-12-11')),
+  organizer_code_hash text not null default '' check (organizer_code_hash = '' or organizer_code_hash ~ '^[a-f0-9]{64}$'),
   draw_complete boolean not null default false,
   updated_at timestamptz not null default now()
 );
