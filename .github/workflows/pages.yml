@@ -19,7 +19,7 @@ jobs:
   deploy:
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deploy-1.outputs.page_url || steps.deploy-2.outputs.page_url || steps.deploy-3.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -48,6 +48,29 @@ jobs:
           done
           echo "The github-pages artifact did not appear in the Actions API."
           exit 1
-      - name: Deploy to GitHub Pages
-        id: deployment
+      - name: Deploy to GitHub Pages (attempt 1)
+        id: deploy-1
         uses: actions/deploy-pages@v5
+        continue-on-error: true
+      - name: Retry Pages deployment (attempt 2)
+        id: deploy-2
+        if: steps.deploy-1.outcome == 'failure'
+        uses: actions/deploy-pages@v5
+        continue-on-error: true
+      - name: Retry Pages deployment (attempt 3)
+        id: deploy-3
+        if: steps.deploy-1.outcome == 'failure' && steps.deploy-2.outcome == 'failure'
+        uses: actions/deploy-pages@v5
+        continue-on-error: true
+      - name: Confirm Pages deployment
+        if: always()
+        env:
+          ATTEMPT_1: ${{ steps.deploy-1.outcome }}
+          ATTEMPT_2: ${{ steps.deploy-2.outcome }}
+          ATTEMPT_3: ${{ steps.deploy-3.outcome }}
+        run: |
+          if [ "$ATTEMPT_1" = "success" ] || [ "$ATTEMPT_2" = "success" ] || [ "$ATTEMPT_3" = "success" ]; then
+            exit 0
+          fi
+          echo "All Pages deployment attempts failed."
+          exit 1
