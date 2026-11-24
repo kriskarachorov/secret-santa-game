@@ -1,0 +1,2 @@
+[functions.secret-santa]
+verify_jwt = false
