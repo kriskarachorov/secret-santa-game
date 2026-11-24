@@ -59,10 +59,9 @@ Use fake data and discard the staging project afterwards. Only after these check
 
 ## GitHub Pages
 
-1. Create a new **public** GitHub repository named `secret-santa-2026` under `kriskarachorov`.
-2. Put the contents of this folder at the repository root, including the `.github/workflows/pages.yml` workflow.
-3. In the repository, open **Settings → Pages** and set the build/deployment source to **GitHub Actions**.
-4. Push to `main`. The workflow publishes the site; GitHub displays the URL in the Pages settings and in the workflow deployment summary.
+1. The public repository is [`kriskarachorov/secret-santa-game`](https://github.com/kriskarachorov/secret-santa-game); these site files are at its root.
+2. In that repository, open **Settings → Pages** and set the build/deployment source to **GitHub Actions**.
+3. The `main` branch already has the deployment workflow. Once Pages is enabled, a push or manual workflow run publishes the static site; GitHub displays its URL in the Pages settings and the workflow deployment summary.
 
 The public repo contains only the static front end, SQL schema, and Edge Function source. All production secrets stay in Supabase. The repo must not contain real student names, reveal codes, or gift hints.
 
