@@ -60,7 +60,7 @@ The public repo contains only the static front end, SQL schema, and Edge Functio
 
 ## Organizer controls
 
-The organizer enters `ORGANIZER_CODE` in the organizer controls. The event date is Friday, December 18, 2026; signups can be opened or closed there. The draw button closes signups and makes the one-time draw. The database serializes joins, settings, and draw finalization. The draw is randomized with cryptographic randomness, is a derangement (no one gets themselves), and each participant can reveal only their own match with their code.
+Organizer tools stay locked until the private organizer code is entered, and the code is held in memory only for that page session. The owner can open or close signups, remove participants before the draw, view assignments after the draw, and download a private CSV of names and matches. The organizer export never contains participants’ reveal codes: those are stored only as hashes and remain with each participant. The event date is Friday, December 18, 2026. The draw is randomized with cryptographic randomness, is a derangement (no one gets themselves), and each participant can reveal their own match with their code.
 
 ## Data and privacy
 
