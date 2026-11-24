@@ -12,6 +12,7 @@
     restoreForm: $("#restore-form"), restoreCode: $("#restore-code"), restoreStatus: $("#restore-status"),
     participants: $("#participant-list"), count: $("#participant-count"), signupState: $("#signup-state"), countdownTitle: $("#countdown-title"), countdownNote: $("#countdown-note"),
     reveal: $("#reveal-card"), revealHint: $("#reveal-hint"), revealButton: $("#reveal-button"), organizerCode: $("#organizer-code"),
+    organizerDialog: $("#organizer-dialog"), organizerOpen: $("#organizer-open"), organizerClose: $("#organizer-close"),
     organizerAuth: $("#organizer-auth-form"), authStatus: $("#admin-auth-status"), organizerDashboard: $("#organizer-dashboard"),
     organizerRows: $("#organizer-rows"), adminStatus: $("#admin-status"), exportButton: $("#export-organizer-csv"),
   };
@@ -283,16 +284,24 @@
     }
   });
 
-  $("#organizer-lock").addEventListener("click", () => {
+  function lockOrganizer(message = "Organizer tools locked.") {
     state.organizerCode = "";
     state.organizerData = null;
     els.organizerCode.value = "";
     els.organizerAuth.hidden = false;
     els.organizerDashboard.hidden = true;
     els.organizerRows.replaceChildren();
-    setStatus(els.authStatus, "Organizer tools locked.");
+    setStatus(els.authStatus, message);
     setStatus(els.adminStatus, "");
+  }
+
+  els.organizerOpen.addEventListener("click", () => {
+    els.organizerDialog.showModal();
+    if (!state.organizerCode) window.setTimeout(() => els.organizerCode.focus(), 0);
   });
+  els.organizerClose.addEventListener("click", () => els.organizerDialog.close());
+  els.organizerDialog.addEventListener("close", () => lockOrganizer());
+  $("#organizer-lock").addEventListener("click", () => lockOrganizer());
 
   els.exportButton.addEventListener("click", () => {
     const people = state.organizerData?.participants || [];
