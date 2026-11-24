@@ -77,8 +77,8 @@
       els.countdownNote.textContent = "We’ll meet at school, swap gifts, then head out together.";
       startCountdown(selected);
     } else {
-      els.countdownTitle.textContent = "Friday, 18 December";
-      els.countdownNote.textContent = "Friday, December 18, 2026";
+      els.countdownTitle.textContent = "Friday, 11 December";
+      els.countdownNote.textContent = "Friday, December 11, 2026";
       ["days", "hours", "minutes", "seconds"].forEach((id) => { $(`#${id}`).textContent = "—"; });
     }
 
@@ -115,7 +115,7 @@
       els.restoreForm.querySelector("button").disabled = true;
       els.signupState.textContent = "Not connected yet";
       setStatus(els.joinStatus, message);
-      $("#countdown-note").textContent = "Friday, December 18, 2026";
+      $("#countdown-note").textContent = "Friday, December 11, 2026";
       return;
     }
     try {
@@ -325,7 +325,7 @@
       const result = await adminRequest("settings", {
         signupsOpen: $("#admin-signups").checked,
         votingOpen: false,
-        selectedDate: "2026-12-18",
+        selectedDate: "2026-12-11",
       });
       setStatus(els.adminStatus, "Event settings saved.");
       renderPublic(result);
@@ -345,7 +345,7 @@
       await adminRequest("settings", {
         signupsOpen: false,
         votingOpen: false,
-        selectedDate: "2026-12-18",
+        selectedDate: "2026-12-11",
       });
       const result = await adminRequest("draw");
       setStatus(els.adminStatus, `Draw complete for ${result.participants.length} classmates. Each person has one private reveal.`);
