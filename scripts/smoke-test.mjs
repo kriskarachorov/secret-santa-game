@@ -18,21 +18,19 @@ async function call(action, extra = {}) {
 }
 
 const suffix = crypto.randomUUID().slice(0, 8);
-await call("admin", { organizerCode, operation: "settings", signupsOpen: true, votingOpen: true, selectedDate: null });
+await call("admin", { organizerCode, operation: "settings", signupsOpen: true, votingOpen: false, selectedDate: "2026-12-18" });
 const participants = [];
 for (const [index, label] of ["Alex", "Charlie", "Riley"].entries()) {
   const joined = await call("join", { name: `TEST ${label} ${suffix}`, wishlist: `Private test hint ${index} ${suffix}` });
   participants.push({ ...joined.participant, accessCode: joined.accessCode });
 }
 
-const dates = ["2026-12-04", "2026-12-11", "2026-12-04"];
-await Promise.all(participants.map((person, index) => call("vote", { accessCode: person.accessCode, date: dates[index] })));
-await call("admin", { organizerCode, operation: "settings", signupsOpen: false, votingOpen: false, selectedDate: "2026-12-04" });
+await call("admin", { organizerCode, operation: "settings", signupsOpen: false, votingOpen: false, selectedDate: "2026-12-18" });
 const publicData = await call("public");
 if (JSON.stringify(publicData).includes("Private test hint") || JSON.stringify(publicData).includes("recipient_id")) {
   throw new Error("Privacy failure: public state contained a private hint or recipient id.");
 }
-await call("admin", { organizerCode, operation: "draw", selectedDate: "2026-12-04" });
+await call("admin", { organizerCode, operation: "draw", selectedDate: "2026-12-18" });
 
 const revealed = await Promise.all(participants.map(async (person) => {
   const restored = await call("restore", { accessCode: person.accessCode });

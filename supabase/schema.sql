@@ -6,7 +6,7 @@ create table if not exists public.santa_event (
   id smallint primary key default 1 check (id = 1),
   signups_open boolean not null default false,
   voting_open boolean not null default false,
-  selected_date date null check (selected_date is null or selected_date in ('2026-12-04', '2026-12-11')),
+  selected_date date null check (selected_date is null or selected_date in ('2026-12-04', '2026-12-11', '2026-12-18')),
   organizer_code_hash text not null default '' check (organizer_code_hash = '' or organizer_code_hash ~ '^[a-f0-9]{64}$'),
   draw_complete boolean not null default false,
   updated_at timestamptz not null default now()
@@ -24,7 +24,7 @@ create table if not exists public.santa_participants (
 
 create table if not exists public.santa_votes (
   participant_id uuid primary key references public.santa_participants(id) on delete cascade,
-  date date not null check (date in ('2026-12-04', '2026-12-11')),
+  date date not null check (date in ('2026-12-04', '2026-12-11', '2026-12-18')),
   updated_at timestamptz not null default now()
 );
 
@@ -61,7 +61,7 @@ begin
   select * into v_event from public.santa_event where id = 1 for update;
   if v_event.draw_complete then raise exception 'draw-already-complete'; end if;
   if v_event.signups_open or v_event.voting_open then raise exception 'draw-not-ready'; end if;
-  if p_selected_date not in ('2026-12-04', '2026-12-11') then raise exception 'invalid-date'; end if;
+  if p_selected_date not in ('2026-12-04', '2026-12-11', '2026-12-18') then raise exception 'invalid-date'; end if;
   if v_event.selected_date is distinct from p_selected_date then raise exception 'choose-a-date-first'; end if;
 
   select count(*) into v_count from public.santa_participants;
@@ -107,7 +107,7 @@ declare
   v_id uuid;
   v_name text;
 begin
-  select * into v_event from public.santa_event where id = 1 for update;
+  select e.* into v_event from public.santa_event as e where e.id = 1 for update;
   if not v_event.signups_open or v_event.draw_complete then raise exception 'event-is-closed'; end if;
   if p_name is null or char_length(p_name) not between 1 and 50 then raise exception 'invalid-name'; end if;
   if char_length(coalesce(p_wishlist, '')) > 300 then raise exception 'invalid-wishlist'; end if;
@@ -133,7 +133,7 @@ declare
 begin
   select * into v_event from public.santa_event where id = 1 for update;
   if not v_event.voting_open or v_event.draw_complete then raise exception 'voting-is-closed'; end if;
-  if p_date is null or p_date not in ('2026-12-04', '2026-12-11') then raise exception 'invalid-date'; end if;
+  if p_date is null or p_date not in ('2026-12-04', '2026-12-11', '2026-12-18') then raise exception 'invalid-date'; end if;
   insert into public.santa_votes (participant_id, date, updated_at)
   values (p_participant_id, p_date, now())
   on conflict (participant_id) do update set date = excluded.date, updated_at = now();
@@ -164,7 +164,7 @@ declare
 begin
   select * into v_event from public.santa_event where id = 1 for update;
   if v_event.draw_complete then raise exception 'draw-already-complete'; end if;
-  if p_requested_date is not null and p_requested_date not in ('2026-12-04', '2026-12-11') then
+  if p_requested_date is not null and p_requested_date not in ('2026-12-04', '2026-12-11', '2026-12-18') then
     raise exception 'invalid-date';
   end if;
 

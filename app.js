@@ -5,11 +5,11 @@
   const ANON_KEY = (window.SECRET_SANTA_CONFIG?.anonKey || "").trim();
   const KEY = "classSecretSanta2026AccessCode";
   const $ = (selector) => document.querySelector(selector);
-  const state = { code: localStorage.getItem(KEY) || "", participant: null, vote: "", settings: null, pickedDate: "" };
+  const state = { code: localStorage.getItem(KEY) || "", participant: null, settings: null };
 
   const els = {
     joinForm: $("#join-form"), name: $("#participant-name"), wishlist: $("#wishlist"), joinButton: $("#join-submit"), joinStatus: $("#join-status"),
-    restoreForm: $("#restore-form"), restoreCode: $("#restore-code"), restoreStatus: $("#restore-status"), voteButton: $("#vote-submit"), voteStatus: $("#vote-status"),
+    restoreForm: $("#restore-form"), restoreCode: $("#restore-code"), restoreStatus: $("#restore-status"),
     participants: $("#participant-list"), count: $("#participant-count"), signupState: $("#signup-state"), countdownTitle: $("#countdown-title"), countdownNote: $("#countdown-note"),
     reveal: $("#reveal-card"), revealHint: $("#reveal-hint"), revealButton: $("#reveal-button"), organizerCode: $("#organizer-code"), adminStatus: $("#admin-status"),
   };
@@ -68,36 +68,18 @@
     state.settings = data.settings || {};
     els.signupState.textContent = state.settings.signups_open ? "Signups are open" : "Signups are closed";
     els.joinButton.disabled = !state.settings.signups_open;
-    const votingOpen = Boolean(state.settings.voting_open);
-    document.querySelectorAll(".date-card").forEach((card) => {
-      card.disabled = !votingOpen;
-      card.title = !votingOpen ? "Voting is closed." : !state.code ? "Choose this Friday, then join to save your vote." : "Choose this Friday.";
-    });
-    els.voteButton.disabled = !votingOpen || !state.code || !state.pickedDate;
-    els.voteStatus.textContent = !votingOpen ? "Voting is closed."
-      : !state.code ? (state.pickedDate ? `You chose ${formatDate(state.pickedDate)}. Join below to save your vote.` : "Choose a Friday, then join below to save your vote.")
-      : state.vote ? `Your vote is saved for ${formatDate(state.vote)}.`
-      : state.pickedDate ? `Ready to vote for ${formatDate(state.pickedDate)}.`
-      : "Choose the Friday that works best for you.";
-    const voteCounts = data.votes || {};
-    document.querySelectorAll("[data-count]").forEach((node) => {
-      const count = Number(voteCounts[node.dataset.count] || 0);
-      node.textContent = `${count} ${count === 1 ? "vote" : "votes"}`;
-    });
-
     const selected = state.settings.selected_date;
     if (selected) {
       els.countdownTitle.textContent = formatDate(selected);
       els.countdownNote.textContent = "We’ll meet at school, swap gifts, then head out together.";
       startCountdown(selected);
     } else {
-      els.countdownTitle.textContent = state.settings.voting_open ? "Date to be chosen" : "The class is choosing";
-      els.countdownNote.textContent = "Vote for the Friday that works best.";
+      els.countdownTitle.textContent = "Friday, 18 December";
+      els.countdownNote.textContent = "Friday, December 18, 2026";
       ["days", "hours", "minutes", "seconds"].forEach((id) => { $(`#${id}`).textContent = "—"; });
     }
 
     $("#admin-signups").checked = Boolean(state.settings.signups_open);
-    $("#admin-voting").checked = Boolean(state.settings.voting_open);
     if (selected) $("#admin-date").value = selected;
     const hasDraw = Boolean(state.settings.draw_complete);
     els.reveal.hidden = !state.code;
@@ -127,14 +109,12 @@
 
   async function refresh() {
     if (!API_URL || !ANON_KEY) {
-      const message = "Shared signups aren’t connected yet. This page will not save names or votes until the shared service is set up.";
+      const message = "Shared signups aren’t connected yet. This page will not save names until the shared service is set up.";
       els.joinButton.disabled = true;
-      els.voteButton.disabled = true;
       els.restoreForm.querySelector("button").disabled = true;
-      document.querySelectorAll(".date-card").forEach((card) => { card.disabled = true; });
       els.signupState.textContent = "Not connected yet";
       setStatus(els.joinStatus, message);
-      $("#countdown-note").textContent = "The countdown starts after the class chooses a date.";
+      $("#countdown-note").textContent = "Friday, December 18, 2026";
       return;
     }
     try {
@@ -144,7 +124,6 @@
       if (state.code) {
         const own = await request("restore", { accessCode: state.code });
         state.participant = own.participant;
-        state.vote = own.vote || "";
         renderPublic(data);
       }
     } catch (error) {
@@ -152,18 +131,6 @@
       setStatus(els.joinStatus, `Shared event service unavailable: ${error.message}`, true);
     }
   }
-
-  document.querySelectorAll(".date-card").forEach((card) => {
-    card.addEventListener("click", () => {
-      if (!state.settings?.voting_open) return;
-      state.pickedDate = card.dataset.date;
-      document.querySelectorAll(".date-card").forEach((item) => item.setAttribute("aria-pressed", String(item === card)));
-      els.voteButton.disabled = !state.code;
-      setStatus(els.voteStatus, state.code
-        ? `Ready to vote for ${formatDate(state.pickedDate)}.`
-        : `You chose ${formatDate(state.pickedDate)}. Join below to save your vote.`);
-    });
-  });
 
   els.joinForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -195,28 +162,11 @@
       const result = await request("restore", { accessCode });
       state.code = accessCode;
       state.participant = result.participant;
-      state.vote = result.vote || "";
       localStorage.setItem(KEY, state.code);
-      state.pickedDate = state.vote;
-      document.querySelectorAll(".date-card").forEach((card) => card.setAttribute("aria-pressed", String(card.dataset.date === state.vote)));
       setStatus(els.restoreStatus, `Welcome back, ${result.participant.name}. This device is ready.`);
       await refresh();
     } catch (error) {
       setStatus(els.restoreStatus, error.message, true);
-    }
-  });
-
-  els.voteButton.addEventListener("click", async () => {
-    if (!state.code || !state.pickedDate) return;
-    els.voteButton.disabled = true;
-    try {
-      const result = await request("vote", { accessCode: state.code, date: state.pickedDate });
-      state.vote = result.vote;
-      setStatus(els.voteStatus, `Vote saved for ${formatDate(state.vote)}.`);
-      await refresh();
-    } catch (error) {
-      setStatus(els.voteStatus, error.message, true);
-      els.voteButton.disabled = false;
     }
   });
 
@@ -225,7 +175,7 @@
     catch { setStatus($("#code-status"), "Select and copy the code above to save it.", true); }
   });
   $("#download-code").addEventListener("click", () => {
-    const blob = new Blob([`Class Secret Santa 2026\nPrivate reveal code: ${state.code}\n\nKeep this note private. You’ll need the code to access your vote and reveal your recipient on another device.`], { type: "text/plain" });
+    const blob = new Blob([`Class Secret Santa 2026\nPrivate reveal code: ${state.code}\n\nKeep this note private. You’ll need the code to reveal your recipient on another device.`], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url; link.download = "secret-santa-private-code.txt"; link.click(); URL.revokeObjectURL(url);
@@ -262,7 +212,7 @@
       const selectedDate = $("#admin-date").value || null;
       const result = await adminRequest("settings", {
         signupsOpen: $("#admin-signups").checked,
-        votingOpen: $("#admin-voting").checked,
+        votingOpen: false,
         selectedDate,
       });
       setStatus(els.adminStatus, "Event settings saved.");
@@ -274,8 +224,7 @@
     if (!window.confirm("Close signups and make the Secret Santa draw? This draw cannot be undone.")) return;
     setStatus(els.adminStatus, "Closing signups and drawing names…");
     try {
-      // Close both signup and voting first. The database serializes this with
-      // joins and votes, then the draw RPC validates the final event state.
+      // Close signups before making the one-time draw.
       await adminRequest("settings", {
         signupsOpen: false,
         votingOpen: false,

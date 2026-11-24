@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Content-Type": "application/json; charset=utf-8",
 };
-const dates = new Set(["2026-12-04", "2026-12-11"]);
+const dates = new Set(["2026-12-18"]);
 const encoder = new TextEncoder();
 
 function respond(body: Record<string, unknown>, status = 200) {
@@ -116,7 +116,7 @@ Deno.serve(async (request) => {
       const name = cleanName(body.name);
       const wishlist = cleanWishlist(body.wishlist);
       if (!name || name.length > 50) return respond({ error: "Enter a name up to 50 characters." }, 400);
-      const { data: event, error: eventError } = await db.from("santa_event").select("signups_open,draw_complete").eq("id", 1).single();
+      const { data: event, error: eventError } = await db.from("santa_event").select("signups_open,voting_open,draw_complete").eq("id", 1).single();
       if (eventError) throw new Error("Could not read event settings.");
       if (!event.signups_open || event.draw_complete) throw new Error("event-is-closed");
       const code = randomCode();
@@ -151,7 +151,7 @@ Deno.serve(async (request) => {
 
       if (action === "vote") {
         const date = body.date;
-        if (!dates.has(date)) return respond({ error: "Choose one of the two Fridays." }, 400);
+        if (!dates.has(date)) return respond({ error: "The class date is Friday, December 18." }, 400);
         const { data: event, error: eventError } = await db.from("santa_event").select("voting_open,draw_complete").eq("id", 1).single();
         if (eventError) throw new Error("Could not read voting settings.");
         if (!event.voting_open || event.draw_complete) throw new Error("voting-is-closed");
@@ -182,7 +182,7 @@ Deno.serve(async (request) => {
         const signupsOpen = body.signupsOpen === true;
         const votingOpen = body.votingOpen === true;
         const requestedDate = body.selectedDate || null;
-        if (requestedDate && !dates.has(requestedDate)) return respond({ error: "Choose one of the two Fridays." }, 400);
+        if (requestedDate && !dates.has(requestedDate)) return respond({ error: "Choose Friday, December 18, 2026." }, 400);
         const { error: updateError } = await db.rpc("update_secret_santa_settings", {
           p_signups_open: signupsOpen,
           p_voting_open: votingOpen,
