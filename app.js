@@ -69,9 +69,16 @@
     els.signupState.textContent = state.settings.signups_open ? "Signups are open" : "Signups are closed";
     els.joinButton.disabled = !state.settings.signups_open;
     const votingOpen = Boolean(state.settings.voting_open);
-    document.querySelectorAll(".date-card").forEach((card) => { card.disabled = !votingOpen || !state.code; });
+    document.querySelectorAll(".date-card").forEach((card) => {
+      card.disabled = !votingOpen;
+      card.title = !votingOpen ? "Voting is closed." : !state.code ? "Choose this Friday, then join to save your vote." : "Choose this Friday.";
+    });
     els.voteButton.disabled = !votingOpen || !state.code || !state.pickedDate;
-    els.voteStatus.textContent = !state.code ? "Join the exchange to cast your vote." : votingOpen ? (state.vote ? `Your vote is saved for ${formatDate(state.vote)}.` : "Choose the Friday that works best for you.") : "Voting is closed.";
+    els.voteStatus.textContent = !votingOpen ? "Voting is closed."
+      : !state.code ? (state.pickedDate ? `You chose ${formatDate(state.pickedDate)}. Join below to save your vote.` : "Choose a Friday, then join below to save your vote.")
+      : state.vote ? `Your vote is saved for ${formatDate(state.vote)}.`
+      : state.pickedDate ? `Ready to vote for ${formatDate(state.pickedDate)}.`
+      : "Choose the Friday that works best for you.";
     const voteCounts = data.votes || {};
     document.querySelectorAll("[data-count]").forEach((node) => {
       const count = Number(voteCounts[node.dataset.count] || 0);
@@ -148,11 +155,13 @@
 
   document.querySelectorAll(".date-card").forEach((card) => {
     card.addEventListener("click", () => {
-      if (!state.code || !state.settings?.voting_open) return;
+      if (!state.settings?.voting_open) return;
       state.pickedDate = card.dataset.date;
       document.querySelectorAll(".date-card").forEach((item) => item.setAttribute("aria-pressed", String(item === card)));
-      els.voteButton.disabled = false;
-      setStatus(els.voteStatus, `Ready to vote for ${formatDate(state.pickedDate)}.`);
+      els.voteButton.disabled = !state.code;
+      setStatus(els.voteStatus, state.code
+        ? `Ready to vote for ${formatDate(state.pickedDate)}.`
+        : `You chose ${formatDate(state.pickedDate)}. Join below to save your vote.`);
     });
   });
 
