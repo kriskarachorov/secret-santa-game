@@ -33,10 +33,9 @@ function randomCode() {
   return codeToBase64Url(crypto.getRandomValues(new Uint8Array(24)));
 }
 
-async function accessHash(code: string, pepper: string) {
-  const key = await crypto.subtle.importKey("raw", encoder.encode(pepper), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const signature = new Uint8Array(await crypto.subtle.sign("HMAC", key, encoder.encode(code)));
-  return [...signature].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+async function accessHash(code: string) {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", encoder.encode(code)));
+  return [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function constantTimeEqual(a: string, b: string) {
@@ -74,6 +73,7 @@ function failStatus(message: string) {
   if (message === "name-already-joined") return 409;
   if (message === "invalid-code") return 403;
   if (message === "invalid-organizer-code") return 403;
+  if (message === "organizer-code-not-configured") return 503;
   if (message === "draw-already-complete") return 409;
   if (message === "date-tie-needs-organizer-choice" || message === "no-votes-yet") return 409;
   if (message === "at-least-two-participants-required") return 409;
@@ -90,9 +90,7 @@ Deno.serve(async (request) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const pepper = Deno.env.get("TOKEN_PEPPER");
-  const organizerCode = Deno.env.get("ORGANIZER_CODE");
-  if (!supabaseUrl || !serviceKey || !pepper || !organizerCode) {
+  if (!supabaseUrl || !serviceKey) {
     return respond({ error: "The shared event service is not fully configured." }, 503);
   }
 
@@ -122,7 +120,7 @@ Deno.serve(async (request) => {
       if (eventError) throw new Error("Could not read event settings.");
       if (!event.signups_open || event.draw_complete) throw new Error("event-is-closed");
       const code = randomCode();
-      const hash = await accessHash(code, pepper);
+      const hash = await accessHash(code);
       const { data, error } = await db.rpc("join_secret_santa", {
         p_name: name,
         p_name_normalized: name.normalize("NFKC").toLocaleLowerCase(),
@@ -140,7 +138,7 @@ Deno.serve(async (request) => {
     if (action === "restore" || action === "vote" || action === "reveal") {
       const code = typeof body.accessCode === "string" ? body.accessCode.trim() : "";
       if (code.length < 30 || code.length > 50) throw new Error("invalid-code");
-      const hash = await accessHash(code, pepper);
+      const hash = await accessHash(code);
       const { data: person, error } = await db.from("santa_participants").select("id,name").eq("access_hash", hash).maybeSingle();
       if (error) throw new Error("Could not verify your private code.");
       if (!person) throw new Error("invalid-code");
@@ -177,7 +175,9 @@ Deno.serve(async (request) => {
 
     if (action === "admin") {
       const supplied = typeof body.organizerCode === "string" ? body.organizerCode : "";
-      if (!constantTimeEqual(supplied, organizerCode)) throw new Error("invalid-organizer-code");
+      const { data: eventAuth, error: authError } = await db.from("santa_event").select("organizer_code_hash").eq("id", 1).single();
+      if (authError || !eventAuth?.organizer_code_hash) throw new Error("organizer-code-not-configured");
+      if (!constantTimeEqual(await accessHash(supplied), eventAuth.organizer_code_hash)) throw new Error("invalid-organizer-code");
       if (body.operation === "settings") {
         const signupsOpen = body.signupsOpen === true;
         const votingOpen = body.votingOpen === true;
