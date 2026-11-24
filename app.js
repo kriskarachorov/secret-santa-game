@@ -273,7 +273,7 @@
         selectedDate: $("#admin-date").value || null,
       });
       const result = await adminRequest("draw");
-      setStatus(els.adminStatus, `Draw complete for ${result.participantCount} classmates. Each person has one private reveal.`);
+      setStatus(els.adminStatus, `Draw complete for ${result.participants.length} classmates. Each person has one private reveal.`);
       renderPublic(result);
       toast("The draw is ready.");
     } catch (error) { setStatus(els.adminStatus, error.message, true); }
