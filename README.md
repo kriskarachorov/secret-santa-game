@@ -51,7 +51,7 @@ After the staging smoke test passes, open the staging site on at least two diffe
 1. Join with clearly fake names and fake gift hints on phone A; confirm the same names appear on phone B.
 2. Cast or change a vote on phone A; refresh phone B and confirm the shared vote totals update.
 3. Copy the private code from phone A and restore it on phone B; confirm the participant name and vote load.
-4. Use the organizer controls to close voting, choose a date if there is a tie, and start the draw.
+4. Use the organizer controls to close voting, choose a date if there is a tie, then use the draw button (it closes signups and voting before finalizing).
 5. Reveal on two phones using different codes. Confirm each code only returns its own recipient and that no one draws themselves.
 6. Check that public status, page source, and network responses never expose the assignment list or anyone else's gift hints.
 
@@ -67,7 +67,7 @@ The public repo contains only the static front end, SQL schema, and Edge Functio
 
 ## Organizer controls
 
-The organizer enters `ORGANIZER_CODE` in the controls at the bottom of the page. Open signups and voting, then save. To finalize the date, close voting: the highest-voted option is selected automatically; for a tie, choose one of the two Fridays in the date selector and save. Close signups before drawing. The draw is atomic, randomized with cryptographic randomness, a derangement (no one gets themselves), and permanently one-time for that database. Each participant can reveal only their own match with their code.
+The organizer enters `ORGANIZER_CODE` in the controls at the bottom of the page. Open signups and voting, then save. To finalize the date, close voting: the highest-voted option is selected automatically; for a tie, choose one of the two Fridays in the date selector and save. The draw button closes signups and voting, then makes the one-time draw. The database serializes joins, votes, settings, and draw finalization. The draw is randomized with cryptographic randomness, is a derangement (no one gets themselves), and each participant can reveal only their own match with their code.
 
 ## Data and privacy
 
