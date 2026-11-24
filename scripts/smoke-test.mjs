@@ -9,7 +9,7 @@ if (!endpoint || !anonKey || !organizerCode) throw new Error("Set SECRET_SANTA_A
 async function call(action, extra = {}) {
   const response = await fetch(endpoint, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "apikey": anonKey, "Authorization": `Bearer ${anonKey}` },
+    headers: { "Content-Type": "application/json", "apikey": anonKey },
     body: JSON.stringify({ action, ...extra }),
   });
   const data = await response.json();
